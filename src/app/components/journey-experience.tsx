@@ -37,7 +37,7 @@ function MediaLayer({
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || video.readyState < 3) return;
+    if (!video || video.readyState < 2) return;
     setVideoReady(true);
     if (index === 0) onIntroReady();
   }, [index, onIntroReady]);
@@ -87,6 +87,9 @@ function MediaLayer({
           playsInline
           preload={active ? "auto" : "metadata"}
           poster={scene.imageSrc}
+          onLoadedMetadata={() => {
+            if (index === 0) onIntroReady();
+          }}
           onCanPlay={() => {
             setVideoReady(true);
             if (index === 0) onIntroReady();
@@ -301,6 +304,25 @@ export default function JourneyExperience() {
   useEffect(() => {
     if (
       loaderProgress < 100 ||
+      loaderExitStartedRef.current ||
+      (firstImageReady && heroMediaReady)
+    )
+      return;
+
+    // iOS and data-saving mobile browsers may ignore video preload until a
+    // playback request. Never let that behavior trap the experience at 100%:
+    // reveal the poster first, then let the intro start (or gracefully skip).
+    const mobileReadyFallback = window.setTimeout(() => {
+      setFirstImageReady(true);
+      setHeroMediaReady(true);
+    }, 2200);
+
+    return () => window.clearTimeout(mobileReadyFallback);
+  }, [firstImageReady, heroMediaReady, loaderProgress]);
+
+  useEffect(() => {
+    if (
+      loaderProgress < 100 ||
       !firstImageReady ||
       !heroMediaReady ||
       loaderExitStartedRef.current
@@ -511,18 +533,34 @@ export default function JourneyExperience() {
         const currentMedia = media[index];
         const nextMedia = media[index + 1];
 
-        timeline
-          .to(
-            titleWords[index],
-            {
-              yPercent: -115,
-              rotate: -1.5,
-              duration: 0.28,
-              stagger: 0.014,
-              ease: "power2.in",
-            },
-            position,
-          )
+        const exitTitleTween =
+          index === 0
+            ? timeline.fromTo(
+                titleWords[index],
+                { yPercent: 0, rotate: 0 },
+                {
+                  yPercent: -115,
+                  rotate: -1.5,
+                  duration: 0.28,
+                  stagger: 0.014,
+                  ease: "power2.in",
+                  immediateRender: false,
+                },
+                position,
+              )
+            : timeline.to(
+                titleWords[index],
+                {
+                  yPercent: -115,
+                  rotate: -1.5,
+                  duration: 0.28,
+                  stagger: 0.014,
+                  ease: "power2.in",
+                },
+                position,
+              );
+
+        exitTitleTween
           .to(
             copyDetails[index],
             {
