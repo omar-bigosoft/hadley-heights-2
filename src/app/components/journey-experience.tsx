@@ -173,11 +173,53 @@ function AnimatedTitle({ children }: { children: string }) {
 
 type MobileStoryProps = {
   onFirstReady: () => void;
-  onReady: () => void;
   onEnquire: () => void;
 };
 
-function MobileStory({ onFirstReady, onReady, onEnquire }: MobileStoryProps) {
+type MobileIntroProps = {
+  playbackEnabled: boolean;
+  onReady: () => void;
+  onComplete: () => void;
+};
+
+function MobileIntro({ playbackEnabled, onReady, onComplete }: MobileIntroProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (!playbackEnabled) {
+      video.pause();
+      return;
+    }
+
+    video.play().catch(() => onComplete());
+  }, [onComplete, playbackEnabled]);
+
+  return (
+    <div className="mobile-intro" aria-hidden="true">
+      <video
+        ref={videoRef}
+        muted
+        playsInline
+        preload="auto"
+        poster={journeyScenes[0].imageSrc}
+        onCanPlay={onReady}
+        onLoadedData={onReady}
+        onEnded={onComplete}
+        onError={() => {
+          onReady();
+          onComplete();
+        }}
+      >
+        <source src={journeyScenes[0].videoSrc ?? undefined} type="video/mp4" />
+      </video>
+    </div>
+  );
+}
+
+function MobileStory({ onFirstReady, onEnquire }: MobileStoryProps) {
   const sceneRefs = useRef<Array<HTMLElement | null>>([]);
   const sceneRatios = useRef<number[]>(Array(journeyScenes.length).fill(0));
   const [activeIndex, setActiveIndex] = useState(0);
@@ -185,7 +227,6 @@ function MobileStory({ onFirstReady, onReady, onEnquire }: MobileStoryProps) {
   useEffect(() => {
     const fallback = window.setTimeout(() => {
       onFirstReady();
-      onReady();
     }, 1800);
 
     const observer = new IntersectionObserver(
@@ -215,7 +256,7 @@ function MobileStory({ onFirstReady, onReady, onEnquire }: MobileStoryProps) {
       window.clearTimeout(fallback);
       observer.disconnect();
     };
-  }, [onFirstReady, onReady]);
+  }, [onFirstReady]);
 
   const activeScene = journeyScenes[activeIndex];
 
@@ -265,7 +306,6 @@ function MobileStory({ onFirstReady, onReady, onEnquire }: MobileStoryProps) {
                 index === 0
                   ? () => {
                       onFirstReady();
-                      onReady();
                     }
                   : undefined
               }
@@ -1191,14 +1231,19 @@ export default function JourneyExperience() {
         </div>
         </section>
       ) : (
-        <MobileStory
-          onFirstReady={() => setFirstImageReady(true)}
-          onReady={() => {
-            setHeroMediaReady(true);
-            setHeroIntroComplete(true);
-          }}
-          onEnquire={() => setEnquiryOpen(true)}
-        />
+        <>
+          {!heroIntroComplete ? (
+            <MobileIntro
+              playbackEnabled={introPlaybackAllowed}
+              onReady={() => setHeroMediaReady(true)}
+              onComplete={() => setHeroIntroComplete(true)}
+            />
+          ) : null}
+          <MobileStory
+            onFirstReady={() => setFirstImageReady(true)}
+            onEnquire={() => setEnquiryOpen(true)}
+          />
+        </>
       )}
 
       <button
