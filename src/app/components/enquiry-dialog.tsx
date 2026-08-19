@@ -188,7 +188,6 @@ export default function EnquiryDialog({ open, onClose }: EnquiryDialogProps) {
         aria-modal="true"
         aria-labelledby={titleId}
       >
-        <div className="enquiry-panel__topline" />
         <button
           type="button"
           className="enquiry-panel__close"
@@ -201,7 +200,6 @@ export default function EnquiryDialog({ open, onClose }: EnquiryDialogProps) {
         {!submitted ? (
           <>
             <div className="enquiry-panel__header">
-              <p>Current availability</p>
               <h2 id={titleId}>Receive the private presentation.</h2>
               <span>Floor plans, pricing and all three payment options.</span>
             </div>
