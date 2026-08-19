@@ -188,6 +188,8 @@ export default function JourneyExperience() {
   const [enquiryOpen, setEnquiryOpen] = useState(false);
 
   useEffect(() => {
+    const isCompactViewport = () =>
+      window.matchMedia("(max-width: 800px)").matches;
     const lenis = new Lenis({
       autoRaf: false,
       lerp: 0.09,
@@ -240,6 +242,9 @@ export default function JourneyExperience() {
     };
 
     const queueChapterSnap = () => {
+      // Mobile should feel like a continuous film reel, not a forced carousel.
+      // The desktop chapter snap remains unchanged for precise scene navigation.
+      if (isCompactViewport()) return;
       window.clearTimeout(chapterSnapTimer);
       chapterSnapTimer = window.setTimeout(settleOnNearestChapter, 520);
     };
@@ -912,6 +917,13 @@ export default function JourneyExperience() {
             <span className="frame-corner frame-corner--tr" />
             <span className="frame-corner frame-corner--bl" />
             <span className="frame-corner frame-corner--br" />
+          </div>
+
+          <div className="mobile-glide-cue" aria-hidden="true" key={activeScene}>
+            <span />
+            <p>
+              {String(activeScene + 1).padStart(2, "0")} <i /> {journeyScenes.length}
+            </p>
           </div>
 
           <div className="copy-stack">
