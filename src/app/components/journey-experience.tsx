@@ -179,6 +179,7 @@ type MobileStoryProps = {
 
 function MobileStory({ onFirstReady, onReady, onEnquire }: MobileStoryProps) {
   const sceneRefs = useRef<Array<HTMLElement | null>>([]);
+  const sceneRatios = useRef<number[]>(Array(journeyScenes.length).fill(0));
   const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
@@ -189,13 +190,23 @@ function MobileStory({ onFirstReady, onReady, onEnquire }: MobileStoryProps) {
 
     const observer = new IntersectionObserver(
       (entries) => {
-        const visibleScene = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-        const index = Number(visibleScene?.target.getAttribute("data-mobile-scene"));
-        if (Number.isFinite(index)) setActiveIndex(index);
+        entries.forEach((entry) => {
+          const index = Number(entry.target.getAttribute("data-mobile-scene"));
+          if (Number.isFinite(index)) {
+            sceneRatios.current[index] = entry.isIntersecting
+              ? entry.intersectionRatio
+              : 0;
+          }
+        });
+
+        const nextIndex = sceneRatios.current.reduce(
+          (mostVisible, ratio, index, ratios) =>
+            ratio > ratios[mostVisible] ? index : mostVisible,
+          0,
+        );
+        setActiveIndex(nextIndex);
       },
-      { threshold: [0.25, 0.5, 0.75], rootMargin: "-12% 0px -18%" },
+      { threshold: [0, 0.2, 0.45, 0.7, 1], rootMargin: "-18% 0px -26%" },
     );
 
     sceneRefs.current.forEach((scene) => scene && observer.observe(scene));
@@ -206,8 +217,30 @@ function MobileStory({ onFirstReady, onReady, onEnquire }: MobileStoryProps) {
     };
   }, [onFirstReady, onReady]);
 
+  const activeScene = journeyScenes[activeIndex];
+
   return (
     <section className="mobile-journey" aria-label="Hadley Heights 2 mobile story">
+      <div className="mobile-story-copy-stage">
+        <div
+          className={`mobile-story-copy ${
+            activeScene.layout === "closing" ? "mobile-story-copy--closing" : ""
+          }`}
+          key={activeScene.id}
+        >
+          <p className="mobile-story-copy__index">
+            {String(activeIndex + 1).padStart(2, "0")} <span /> {journeyScenes.length}
+          </p>
+          <p className="mobile-story-copy__kicker">{activeScene.kicker}</p>
+          <h1>{activeScene.title}</h1>
+          <p className="mobile-story-copy__description">{activeScene.description}</p>
+          {activeScene.layout === "closing" ? (
+            <button type="button" onClick={onEnquire}>
+              Request availability <span aria-hidden="true">→</span>
+            </button>
+          ) : null}
+        </div>
+      </div>
       {journeyScenes.map((scene, index) => (
         <article
           className={`mobile-story-scene ${
@@ -242,19 +275,6 @@ function MobileStory({ onFirstReady, onReady, onEnquire }: MobileStoryProps) {
           )}
           <div className="mobile-story-scene__veil" aria-hidden="true" />
           <div className="mobile-story-scene__frame" aria-hidden="true" />
-          <div className="mobile-story-scene__copy">
-            <p className="mobile-story-scene__index">
-              {String(index + 1).padStart(2, "0")} <span /> {journeyScenes.length}
-            </p>
-            <p className="mobile-story-scene__kicker">{scene.kicker}</p>
-            <h1>{scene.title}</h1>
-            <p className="mobile-story-scene__description">{scene.description}</p>
-            {scene.layout === "closing" ? (
-              <button type="button" onClick={onEnquire}>
-                Request availability <span aria-hidden="true">→</span>
-              </button>
-            ) : null}
-          </div>
         </article>
       ))}
     </section>
