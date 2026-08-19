@@ -480,16 +480,32 @@ export default function JourneyExperience() {
 
       gsap.set(layers, { autoAlpha: 0 });
       gsap.set(copies, { autoAlpha: 0 });
-      gsap.set(titleWords.flat(), { yPercent: 115, rotate: 2 });
-      gsap.set(copyDetails.flat(), { autoAlpha: 0, y: 16 });
-      gsap.set(copyRules, { scaleX: 0, transformOrigin: "left center" });
-      gsap.set(ornaments, { autoAlpha: 0, scale: 0.7, rotate: -18 });
+      gsap.set(
+        titleWords.flat(),
+        compactMotion ? { yPercent: 0, rotate: 0 } : { yPercent: 115, rotate: 2 },
+      );
+      gsap.set(
+        copyDetails.flat(),
+        compactMotion ? { autoAlpha: 1, y: 0 } : { autoAlpha: 0, y: 16 },
+      );
+      gsap.set(
+        copyRules,
+        compactMotion
+          ? { scaleX: 1, transformOrigin: "left center" }
+          : { scaleX: 0, transformOrigin: "left center" },
+      );
+      gsap.set(
+        ornaments,
+        compactMotion
+          ? { autoAlpha: 0, scale: 1, rotate: 0 }
+          : { autoAlpha: 0, scale: 0.7, rotate: -18 },
+      );
       gsap.set(transitionSweep, { autoAlpha: 0, xPercent: -120 });
       gsap.set(transitionFilms, { autoAlpha: 0 });
       gsap.set(layers[0], { autoAlpha: 1 });
       gsap.set(copies[0], { autoAlpha: 1 });
 
-      if (reducedMotion) {
+      if (reducedMotion || compactMotion) {
         ScrollTrigger.create({
           trigger: journey,
           start: "top top",
@@ -715,7 +731,7 @@ export default function JourneyExperience() {
       !firstImageReady ||
       !heroIntroComplete ||
       !rootRef.current ||
-      !motionEnabled
+      !motionEnabled || window.matchMedia("(max-width: 800px)").matches
     )
       return;
 
