@@ -174,16 +174,40 @@ function AnimatedTitle({ children }: { children: string }) {
 type MobileStoryProps = {
   onFirstReady: () => void;
   onEnquire: () => void;
+  revealCopy: boolean;
 };
 
 type MobileIntroProps = {
   playbackEnabled: boolean;
   onReady: () => void;
-  onComplete: () => void;
+  onReveal: () => void;
+  onFinish: () => void;
 };
 
-function MobileIntro({ playbackEnabled, onReady, onComplete }: MobileIntroProps) {
+function MobileIntro({
+  playbackEnabled,
+  onReady,
+  onReveal,
+  onFinish,
+}: MobileIntroProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const completedRef = useRef(false);
+  const [isExiting, setIsExiting] = useState(false);
+
+  const finishIntro = (immediately = false) => {
+    if (completedRef.current) return;
+    completedRef.current = true;
+
+    if (immediately) {
+      onReveal();
+      onFinish();
+      return;
+    }
+
+    setIsExiting(true);
+    window.setTimeout(onReveal, 220);
+    window.setTimeout(onFinish, 820);
+  };
 
   useEffect(() => {
     const video = videoRef.current;
@@ -194,11 +218,11 @@ function MobileIntro({ playbackEnabled, onReady, onComplete }: MobileIntroProps)
       return;
     }
 
-    video.play().catch(() => onComplete());
-  }, [onComplete, playbackEnabled]);
+    video.play().catch(() => finishIntro(true));
+  }, [playbackEnabled]);
 
   return (
-    <div className="mobile-intro" aria-hidden="true">
+    <div className={`mobile-intro ${isExiting ? "is-exiting" : ""}`} aria-hidden="true">
       <video
         ref={videoRef}
         muted
@@ -207,10 +231,10 @@ function MobileIntro({ playbackEnabled, onReady, onComplete }: MobileIntroProps)
         poster={journeyScenes[0].imageSrc}
         onCanPlay={onReady}
         onLoadedData={onReady}
-        onEnded={onComplete}
+        onEnded={() => finishIntro()}
         onError={() => {
           onReady();
-          onComplete();
+          finishIntro(true);
         }}
       >
         <source src={journeyScenes[0].videoSrc ?? undefined} type="video/mp4" />
@@ -219,7 +243,7 @@ function MobileIntro({ playbackEnabled, onReady, onComplete }: MobileIntroProps)
   );
 }
 
-function MobileStory({ onFirstReady, onEnquire }: MobileStoryProps) {
+function MobileStory({ onFirstReady, onEnquire, revealCopy }: MobileStoryProps) {
   const sceneRefs = useRef<Array<HTMLElement | null>>([]);
   const sceneRatios = useRef<number[]>(Array(journeyScenes.length).fill(0));
   const [activeIndex, setActiveIndex] = useState(0);
@@ -262,12 +286,12 @@ function MobileStory({ onFirstReady, onEnquire }: MobileStoryProps) {
 
   return (
     <section className="mobile-journey" aria-label="Hadley Heights 2 mobile story">
-      <div className="mobile-story-copy-stage">
+      <div className={`mobile-story-copy-stage ${revealCopy ? "is-ready" : ""}`}>
         <div
           className={`mobile-story-copy ${
             activeScene.layout === "closing" ? "mobile-story-copy--closing" : ""
           }`}
-          key={activeScene.id}
+          key={`${activeScene.id}-${revealCopy ? "ready" : "waiting"}`}
         >
           <p className="mobile-story-copy__index">
             {String(activeIndex + 1).padStart(2, "0")} <span /> {journeyScenes.length}
@@ -337,6 +361,7 @@ export default function JourneyExperience() {
   const [loaderProgress, setLoaderProgress] = useState(0);
   const [enquiryOpen, setEnquiryOpen] = useState(false);
   const [isMobileLayout, setIsMobileLayout] = useState(false);
+  const [mobileIntroFinished, setMobileIntroFinished] = useState(false);
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 800px)");
@@ -527,6 +552,7 @@ export default function JourneyExperience() {
     if (!introPlaybackAllowed || heroIntroComplete) return;
     const fallbackTimer = window.setTimeout(() => {
       setHeroIntroComplete(true);
+      setMobileIntroFinished(true);
     }, 12000);
     return () => window.clearTimeout(fallbackTimer);
   }, [heroIntroComplete, introPlaybackAllowed]);
@@ -1232,16 +1258,18 @@ export default function JourneyExperience() {
         </section>
       ) : (
         <>
-          {!heroIntroComplete ? (
+          {!mobileIntroFinished ? (
             <MobileIntro
               playbackEnabled={introPlaybackAllowed}
               onReady={() => setHeroMediaReady(true)}
-              onComplete={() => setHeroIntroComplete(true)}
+              onReveal={() => setHeroIntroComplete(true)}
+              onFinish={() => setMobileIntroFinished(true)}
             />
           ) : null}
           <MobileStory
             onFirstReady={() => setFirstImageReady(true)}
             onEnquire={() => setEnquiryOpen(true)}
+            revealCopy={heroIntroComplete}
           />
         </>
       )}
