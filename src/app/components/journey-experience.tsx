@@ -1,11 +1,13 @@
 "use client";
 
 import Image from "next/image";
+import type { CSSProperties } from "react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Lenis from "lenis";
 import { journeyScenes, type JourneyScene } from "../scene-data";
+import EnquiryDialog from "./enquiry-dialog";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -183,6 +185,7 @@ export default function JourneyExperience() {
   const [heroIntroComplete, setHeroIntroComplete] = useState(false);
   const [heroMediaReady, setHeroMediaReady] = useState(false);
   const [loaderProgress, setLoaderProgress] = useState(0);
+  const [enquiryOpen, setEnquiryOpen] = useState(false);
 
   useEffect(() => {
     const lenis = new Lenis({
@@ -276,14 +279,14 @@ export default function JourneyExperience() {
     const lenis = lenisRef.current;
     if (!lenis) return;
 
-    if (heroIntroComplete) {
+    if (heroIntroComplete && !enquiryOpen) {
       lenis.start();
       lenis.resize();
       ScrollTrigger.refresh();
     } else {
       lenis.stop();
     }
-  }, [heroIntroComplete]);
+  }, [enquiryOpen, heroIntroComplete]);
 
   useEffect(() => {
     const startedAt = performance.now();
@@ -382,8 +385,10 @@ export default function JourneyExperience() {
       const transitionFilms = gsap.utils.toArray<HTMLVideoElement>(
         "[data-transition-video]",
       );
+      const compactMotion = window.matchMedia("(max-width: 800px)").matches;
+      const activeTransitionFilms = compactMotion ? [] : transitionFilms;
       const transitionTargets = new Map<HTMLVideoElement, number>(
-        transitionFilms.map((film) => [film, 0]),
+        activeTransitionFilms.map((film) => [film, 0]),
       );
       const titleWords = copies.map((copy) =>
         gsap.utils.toArray<HTMLElement>("[data-title-word]", copy),
@@ -417,7 +422,7 @@ export default function JourneyExperience() {
         }
 
         const journeyProgress = progress * (journeyScenes.length - 1);
-        transitionFilms.forEach((film) => {
+        activeTransitionFilms.forEach((film) => {
           const transitionIndex = Number(film.dataset.transitionVideo);
           const localProgress = gsap.utils.clamp(
             0,
@@ -439,7 +444,7 @@ export default function JourneyExperience() {
         if (time - previousRenderTime >= 1000 / 24) {
           previousRenderTime = time;
 
-          transitionFilms.forEach((film) => {
+          activeTransitionFilms.forEach((film) => {
             const targetTime = transitionTargets.get(film) ?? 0;
             const delta = targetTime - film.currentTime;
 
@@ -522,7 +527,7 @@ export default function JourneyExperience() {
           trigger: journey,
           start: "top top",
           end: "bottom bottom",
-          scrub: 0.45,
+          scrub: compactMotion ? 0.2 : 0.45,
           invalidateOnRefresh: true,
           onUpdate: (self) => updateChrome(self.progress),
         },
@@ -683,7 +688,7 @@ export default function JourneyExperience() {
           timeline.fromTo(
             currentMedia,
             { scale: 1 },
-            { scale: 1.065, duration: 1, ease: "none" },
+            { scale: compactMotion ? 1.025 : 1.065, duration: 1, ease: "none" },
             position,
           );
         }
@@ -691,7 +696,7 @@ export default function JourneyExperience() {
         if (nextMedia) {
           timeline.fromTo(
             nextMedia,
-            { scale: 1.08 },
+            { scale: compactMotion ? 1.035 : 1.08 },
             { scale: 1, duration: 0.95, ease: "power1.out" },
             position + 0.08,
           );
@@ -814,13 +819,14 @@ export default function JourneyExperience() {
           <span>Dubai Sports City</span>
         </div>
         <div className="header-actions">
-          <a
+          <button
+            type="button"
             className="header-enquire"
-            href="mailto:office@leosdevelopments.com?subject=Hadley%20Heights%202%20Private%20Presentation"
+            onClick={() => setEnquiryOpen(true)}
           >
             <span>Enquire</span>
             <i aria-hidden="true">↗</i>
-          </a>
+          </button>
         </div>
       </header>
 
@@ -843,8 +849,8 @@ export default function JourneyExperience() {
         ref={journeyRef}
         className="journey"
         style={{
-          height: `${journeyScenes.length * 112}vh`,
-        }}
+          "--scene-count": journeyScenes.length,
+        } as CSSProperties}
         aria-label="Hadley Heights 2 cinematic journey"
       >
         <div className="journey-stage">
@@ -931,12 +937,14 @@ export default function JourneyExperience() {
 
                 {scene.layout === "closing" ? (
                   <div className="closing-actions" data-copy-detail>
-                    <a
-                      href="mailto:office@leosdevelopments.com?subject=Hadley%20Heights%202%20Private%20Presentation"
+                    <button
+                      type="button"
+                      className="closing-actions__primary"
+                      onClick={() => setEnquiryOpen(true)}
                     >
                       Request a private presentation
                       <span aria-hidden="true">↗</span>
-                    </a>
+                    </button>
                     <a
                       className="closing-actions__secondary"
                       href="https://leosdevelopments.com/property-for-sale-in-dubai/hadley-heights-2/"
@@ -967,6 +975,17 @@ export default function JourneyExperience() {
           </div>
         </div>
       </section>
+
+      <button
+        type="button"
+        className="mobile-enquiry-cta"
+        onClick={() => setEnquiryOpen(true)}
+      >
+        <span>Get floor plans &amp; pricing</span>
+        <i aria-hidden="true">→</i>
+      </button>
+
+      <EnquiryDialog open={enquiryOpen} onClose={() => setEnquiryOpen(false)} />
     </main>
   );
 }
