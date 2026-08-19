@@ -171,6 +171,96 @@ function AnimatedTitle({ children }: { children: string }) {
   );
 }
 
+type MobileStoryProps = {
+  onFirstReady: () => void;
+  onReady: () => void;
+  onEnquire: () => void;
+};
+
+function MobileStory({ onFirstReady, onReady, onEnquire }: MobileStoryProps) {
+  const sceneRefs = useRef<Array<HTMLElement | null>>([]);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    const fallback = window.setTimeout(() => {
+      onFirstReady();
+      onReady();
+    }, 1800);
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visibleScene = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        const index = Number(visibleScene?.target.getAttribute("data-mobile-scene"));
+        if (Number.isFinite(index)) setActiveIndex(index);
+      },
+      { threshold: [0.25, 0.5, 0.75], rootMargin: "-12% 0px -18%" },
+    );
+
+    sceneRefs.current.forEach((scene) => scene && observer.observe(scene));
+
+    return () => {
+      window.clearTimeout(fallback);
+      observer.disconnect();
+    };
+  }, [onFirstReady, onReady]);
+
+  return (
+    <section className="mobile-journey" aria-label="Hadley Heights 2 mobile story">
+      {journeyScenes.map((scene, index) => (
+        <article
+          className={`mobile-story-scene ${
+            activeIndex === index ? "is-active" : ""
+          } ${scene.layout === "closing" ? "mobile-story-scene--closing" : ""}`}
+          data-mobile-scene={index}
+          key={scene.id}
+          ref={(element) => {
+            sceneRefs.current[index] = element;
+          }}
+        >
+          {scene.imageSrc ? (
+            <Image
+              src={scene.imageSrc}
+              alt=""
+              fill
+              priority={index < 2}
+              sizes="100vw"
+              className="mobile-story-scene__image"
+              style={{ objectPosition: scene.objectPosition }}
+              onLoad={
+                index === 0
+                  ? () => {
+                      onFirstReady();
+                      onReady();
+                    }
+                  : undefined
+              }
+            />
+          ) : (
+            <div className="mobile-story-scene__atmosphere" />
+          )}
+          <div className="mobile-story-scene__veil" aria-hidden="true" />
+          <div className="mobile-story-scene__frame" aria-hidden="true" />
+          <div className="mobile-story-scene__copy">
+            <p className="mobile-story-scene__index">
+              {String(index + 1).padStart(2, "0")} <span /> {journeyScenes.length}
+            </p>
+            <p className="mobile-story-scene__kicker">{scene.kicker}</p>
+            <h1>{scene.title}</h1>
+            <p className="mobile-story-scene__description">{scene.description}</p>
+            {scene.layout === "closing" ? (
+              <button type="button" onClick={onEnquire}>
+                Request availability <span aria-hidden="true">→</span>
+              </button>
+            ) : null}
+          </div>
+        </article>
+      ))}
+    </section>
+  );
+}
+
 export default function JourneyExperience() {
   const rootRef = useRef<HTMLElement>(null);
   const journeyRef = useRef<HTMLElement>(null);
@@ -186,6 +276,15 @@ export default function JourneyExperience() {
   const [heroMediaReady, setHeroMediaReady] = useState(false);
   const [loaderProgress, setLoaderProgress] = useState(0);
   const [enquiryOpen, setEnquiryOpen] = useState(false);
+  const [isMobileLayout, setIsMobileLayout] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 800px)");
+    const syncLayout = () => setIsMobileLayout(media.matches);
+    syncLayout();
+    media.addEventListener("change", syncLayout);
+    return () => media.removeEventListener("change", syncLayout);
+  }, []);
 
   useEffect(() => {
     const isCompactViewport = () =>
@@ -375,7 +474,7 @@ export default function JourneyExperience() {
   useLayoutEffect(() => {
     const root = rootRef.current;
     const journey = journeyRef.current;
-    if (!root || !journey) return;
+    if (isMobileLayout || !root || !journey) return;
 
     let transitionRenderFrame = 0;
 
@@ -796,14 +895,14 @@ export default function JourneyExperience() {
       window.cancelAnimationFrame(transitionRenderFrame);
       context.revert();
     };
-  }, [motionEnabled]);
+  }, [isMobileLayout, motionEnabled]);
 
   useLayoutEffect(() => {
     if (
       !firstImageReady ||
       !heroIntroComplete ||
       !rootRef.current ||
-      !motionEnabled || window.matchMedia("(max-width: 800px)").matches
+      !motionEnabled || isMobileLayout
     )
       return;
 
@@ -864,7 +963,7 @@ export default function JourneyExperience() {
     }, rootRef);
 
     return () => context.revert();
-  }, [firstImageReady, heroIntroComplete, motionEnabled]);
+  }, [firstImageReady, heroIntroComplete, isMobileLayout, motionEnabled]);
 
   const jumpToScene = (index: number) => {
     const journey = journeyRef.current;
@@ -933,14 +1032,15 @@ export default function JourneyExperience() {
         ))}
       </aside>
 
-      <section
-        ref={journeyRef}
-        className="journey"
-        style={{
-          "--scene-count": journeyScenes.length,
-        } as CSSProperties}
-        aria-label="Hadley Heights 2 cinematic journey"
-      >
+      {!isMobileLayout ? (
+        <section
+          ref={journeyRef}
+          className="journey"
+          style={{
+            "--scene-count": journeyScenes.length,
+          } as CSSProperties}
+          aria-label="Hadley Heights 2 cinematic journey"
+        >
         <div className="journey-stage">
           <div className="media-stack">
             {journeyScenes.map((scene, index) => (
@@ -1069,7 +1169,17 @@ export default function JourneyExperience() {
             </div>
           </div>
         </div>
-      </section>
+        </section>
+      ) : (
+        <MobileStory
+          onFirstReady={() => setFirstImageReady(true)}
+          onReady={() => {
+            setHeroMediaReady(true);
+            setHeroIntroComplete(true);
+          }}
+          onEnquire={() => setEnquiryOpen(true)}
+        />
+      )}
 
       <button
         type="button"
