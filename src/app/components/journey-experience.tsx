@@ -510,7 +510,74 @@ export default function JourneyExperience() {
       gsap.set(layers[0], { autoAlpha: 1 });
       gsap.set(copies[0], { autoAlpha: 1 });
 
-      if (reducedMotion || compactMotion) {
+      if (compactMotion) {
+        ScrollTrigger.create({
+          trigger: journey,
+          start: "top top",
+          end: "bottom bottom",
+          onUpdate: (self) => {
+            const scenePosition = self.progress * (journeyScenes.length - 1);
+            const currentIndex = Math.floor(scenePosition);
+            const nextIndex = Math.min(
+              journeyScenes.length - 1,
+              currentIndex + 1,
+            );
+            const sceneProgress = scenePosition - currentIndex;
+            const visualMix = gsap.utils.clamp(
+              0,
+              1,
+              (sceneProgress - 0.04) / 0.92,
+            );
+            const copyMix = gsap.utils.clamp(
+              0,
+              1,
+              (sceneProgress - 0.7) / 0.28,
+            );
+            const hasNextScene = nextIndex !== currentIndex;
+
+            gsap.set(layers, { autoAlpha: 0, zIndex: 0 });
+            gsap.set(copies, { autoAlpha: 0, y: 0 });
+            gsap.set(layers[currentIndex], {
+              autoAlpha: hasNextScene ? 1 - visualMix * 0.84 : 1,
+              zIndex: 1,
+            });
+            gsap.set(copies[currentIndex], {
+              autoAlpha: hasNextScene ? 1 - copyMix : 1,
+              y: hasNextScene ? -10 * copyMix : 0,
+            });
+
+            if (hasNextScene) {
+              gsap.set(layers[nextIndex], {
+                autoAlpha: visualMix,
+                zIndex: 2,
+              });
+              gsap.set(copies[nextIndex], {
+                autoAlpha: copyMix,
+                y: 12 * (1 - copyMix),
+              });
+            }
+
+            if (media[currentIndex]) {
+              gsap.set(media[currentIndex], {
+                scale: 1 + sceneProgress * 0.018,
+                yPercent: -sceneProgress * 1.2,
+              });
+            }
+
+            if (hasNextScene && media[nextIndex]) {
+              gsap.set(media[nextIndex], {
+                scale: 1.028 - visualMix * 0.028,
+                yPercent: 1.4 - visualMix * 1.4,
+              });
+            }
+
+            updateChrome(self.progress);
+          },
+        });
+        return;
+      }
+
+      if (reducedMotion) {
         ScrollTrigger.create({
           trigger: journey,
           start: "top top",
